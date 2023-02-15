@@ -18,15 +18,21 @@ public class Movement : MonoBehaviour
   CapsuleCollider2D collision;
   AudioSource audioSource;
 
-  // Move Power
+  // Move Speed
   [SerializeField]
   private float speed = 5.0f;
+  // Jump Power
   [SerializeField]
   private float jumpForce = 12.0f;
 
   // State Check
+  // Determine if the player is invulnerable to damage.
+  [HideInInspector]
+  public bool isUnbeat = false;
+  // Check if the player is stepping on the ground
   [HideInInspector]
   public bool isGrounded = false;
+  // Makes it unaffected by other elements when moved by an attack.
   [HideInInspector]
   public bool isDamaged = false;
 
@@ -60,14 +66,15 @@ public class Movement : MonoBehaviour
     // Landing Ground State
     // 발사위치, 사각형 크기, 회전, 발사방향, 거리
     RaycastHit2D rayHit = Physics2D.BoxCast(rigid.position - new Vector2(0, 0.2f), new Vector2(0.6f, 0.7f), 0, Vector2.down, 1f, LayerMask.GetMask("Platform"));
-    if (rayHit.collider != null)  // If the player lands on the ground
+    // If the player lands on the ground
+    if (rayHit.collider != null)
     {
       if (rayHit.distance < 1f)
       {
         // Change Ground State On
         isGrounded = true;
         // Initialize the number of jumps available
-        if (rigid.velocity.y<=0)  // Prevent initialization on jump
+        if (rigid.velocity.y <= 0)  // Prevent initialization on jump
           currentJumpCount = maxJumpCount;
         // Jump Animation Off
         anim.SetBool("isJumping", false);
@@ -100,45 +107,59 @@ public class Movement : MonoBehaviour
 
   private void OnCollisionEnter2D(Collision2D collision)
   {
-    // Be Attacked
-    if (collision.gameObject.tag == "Enemy")
-      if (rigid.velocity.y < 0 && transform.position.y > collision.transform.position.y)
-        OnAttack(collision.transform);
-      else
-        OnDamaged(collision.transform.position);
-    // Run Into Obstacle
-    else if (collision.gameObject.tag == "Obstacle")
-      OnDamaged(collision.transform.position);
+    if (!isUnbeat)
+    {
+      switch (collision.gameObject.tag)
+      {
+        // Hit by Enemy
+        case "Enemy":
+          OnDamaged(collision.transform.position);
+          break;
+        // Hit by Obstacle
+        case "Obstacle":
+          OnDamaged(collision.transform.position);
+          break;
+      }
+    }
+    // Player lands on the ground after being hit, Player can move immediately
+    else if (collision.gameObject.tag == "Platform")
+      isNotDamage();
   }
 
   private void OnTriggerEnter2D(Collider2D collision)
   {
-    // Get Coin
-    if (collision.gameObject.tag == "Item")
+    switch (collision.gameObject.tag)
     {
-      // Get Point
-      bool isBronze = collision.gameObject.name.Contains("Bronze");
-      bool isSilver = collision.gameObject.name.Contains("Silver");
-      bool isGold = collision.gameObject.name.Contains("Gold");
-      if (isBronze)
-        gameManager.stagePoint += 10;
-      else if (isSilver)
-        gameManager.stagePoint += 50;
-      else if (isGold)
-        gameManager.stagePoint += 200;
+      // Attack Enemy
+      case "Enemy":
+        if (rigid.velocity.y < 0 && transform.position.y > collision.transform.position.y)
+          OnAttack(collision.transform);
+        break;
+      // Get Coin
+      case "Item":
+        // Get Point
+        bool isBronze = collision.gameObject.name.Contains("Bronze");
+        bool isSilver = collision.gameObject.name.Contains("Silver");
+        bool isGold = collision.gameObject.name.Contains("Gold");
+        if (isBronze)
+          gameManager.stagePoint += 10;
+        else if (isSilver)
+          gameManager.stagePoint += 50;
+        else if (isGold)
+          gameManager.stagePoint += 200;
 
-      // Deactive Item
-      collision.gameObject.SetActive(false);
+        // Deactive Item
+        collision.gameObject.SetActive(false);
 
-      PlaySound("ITEM");
-    }
-    // Reach Finish
-    else if (collision.gameObject.tag == "Finish")
-    {
-      // Next Stage
-      gameManager.NextStage();
+        PlaySound("ITEM");
+        break;
+      // Reach Finish
+      case "Finish":
+        // Move Next Stage
+        gameManager.NextStage();
 
-      PlaySound("FINISH");
+        PlaySound("FINISH");
+        break;
     }
   }
 
@@ -146,7 +167,7 @@ public class Movement : MonoBehaviour
   {
     // Get Point
     gameManager.stagePoint += 100;
-
+    // Enemy Reaction
     EnemyMove enemyMove = enemy.GetComponent<EnemyMove>();
     enemyMove.Ondamaged();
     // Player Reaction
@@ -157,12 +178,14 @@ public class Movement : MonoBehaviour
 
   void OnDamaged(Vector2 targetPos)
   {
+    // Change Unabeatable State
+    isUnbeat = true;
     // Change Layer
     gameObject.layer = 10;
     // View
     spriteRenderer.color = new Color(1, 1, 1, 0.4f);
 
-    // Reaction
+    // Player Reaction
     dirc = transform.position.x - targetPos.x > 0 ? 1 : -1;
     rigid.velocity = new Vector2(dirc, 1.5f) * 2;
 
@@ -170,20 +193,10 @@ public class Movement : MonoBehaviour
     gameManager.HealthDown();
 
     isDamage();
-    PlaySound("DAMAGED");
     // Return Layer and View
-    Invoke("offDamaged", 3f);
-  }
+    Invoke("offDamaged", 1.5f);
 
-  void isDamage()
-  {
-    isDamaged = true;
-    Invoke("isNotDamage", 1);
-  }
-
-  void isNotDamage()
-  {
-    isDamaged = false;
+    PlaySound("DAMAGED");
   }
 
   void offDamaged()
@@ -192,6 +205,26 @@ public class Movement : MonoBehaviour
     gameObject.layer = 9;
     // View
     spriteRenderer.color = new Color(1, 1, 1, 1);
+    // Return Beatable State
+    isUnbeat = false;
+  }
+
+  // Player can't move
+  void isDamage()
+  {
+    isDamaged = true;
+
+    // When a player lands on the ground or stops being knocked back by a hit
+    if ((isGrounded && rigid.velocity.y <= 0) || Mathf.Abs(rigid.velocity.x) < 0.3f)
+      isNotDamage();
+    else
+      Invoke("isNotDamage", 1);
+  }
+
+  // Player can move again
+  void isNotDamage()
+  {
+    isDamaged = false;
   }
 
   public void OnDie()

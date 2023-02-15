@@ -3003,8 +3003,10 @@ MonoBehaviour:
   audioFinish: {fileID: 8300000, guid: 7478151cf36724a7dada558f746c3633, type: 3}
   speed: 5
   jumpForce: 12
+  isUnbeat: 0
   isGrounded: 0
   isDamaged: 0
+  maxJumpCount: 2
 --- !u!114 &1322115139
 MonoBehaviour:
   m_ObjectHideFlags: 0
