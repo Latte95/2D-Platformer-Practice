@@ -41,6 +41,15 @@ public class Movement : MonoBehaviour
     audioSource = GetComponent<AudioSource>();
   }
 
+  private void Update()
+  {
+    // Jump as much as you press the key
+    if (Input.GetButtonUp("Jump") && rigid.velocity.y > 0)
+    {
+      rigid.velocity = new Vector2(rigid.velocity.x, 0);
+    }
+  }
+
   void FixedUpdate()
   {
     // Landing Ground State
@@ -64,6 +73,16 @@ public class Movement : MonoBehaviour
       // Jump Animation On
       anim.SetBool("isJumping", true);
     }
+
+    // Preventing slipping on slopes
+    if (isGrounded && !Input.GetButton("Horizontal") && !isDamaged)
+      rigid.constraints = ~RigidbodyConstraints2D.FreezePositionY;
+    else
+      rigid.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+    // Prevent floating when moving from uphill to flat
+    if (isGrounded && rigid.velocity.y > 0 && !Input.GetButton("Jump") && !isDamaged)
+      rigid.velocity = new Vector2(rigid.velocity.x, 0);
   }
 
   private void OnCollisionEnter2D(Collision2D collision)
@@ -167,12 +186,11 @@ public class Movement : MonoBehaviour
   {
     // Translucent
     spriteRenderer.color = new Color(1, 1, 1, 0.4f);
-    // Reverse Y
+    // Reation
     spriteRenderer.flipY = true;
+    rigid.AddForce(Vector2.up * 3, ForceMode2D.Impulse);
     // No Collider => Fall
     collision.enabled = false;
-    // Reation(Jump)
-    rigid.AddForce(Vector2.up * 3, ForceMode2D.Impulse);
     // Sound
     StartCoroutine("DieSoundDelay");
   }

@@ -32,6 +32,12 @@ public class EnemyMove : MonoBehaviour
     {
       Turn();
     }
+
+    // Preventing slipping on slopes
+    if (nextMove != 0)
+      rigid.constraints = RigidbodyConstraints2D.FreezeRotation;
+    else
+      rigid.constraints = ~RigidbodyConstraints2D.FreezePositionY;
   }
 
   // Auto Move
@@ -60,15 +66,14 @@ public class EnemyMove : MonoBehaviour
 
   public void Ondamaged()
   {
-    // 반투명
+    // Translucent
     spriteRenderer.color = new Color(1, 1, 1, 0.4f);
-    // 뒤집힘
+    // Reaction
     spriteRenderer.flipY = true;
-    // 물리x = 떨어짐
-    collision.enabled = false;
-    // 점프
     rigid.AddForce(Vector2.up * 3, ForceMode2D.Impulse);
-    // 사라짐
+    // No Collider => Fall
+    collision.enabled = false;
+    // Disappeared
     Invoke("DeActive", 3);
   }
 
