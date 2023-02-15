@@ -30,6 +30,11 @@ public class Movement : MonoBehaviour
   [HideInInspector]
   public bool isDamaged = false;
 
+  // Jump Count
+  [SerializeField]
+  private int maxJumpCount = 2;
+  private int currentJumpCount = 0;
+
   private int dirc = 0;  // 충돌체 방향
 
   void Awake()
@@ -61,8 +66,12 @@ public class Movement : MonoBehaviour
       {
         // Change Ground State On
         isGrounded = true;
+        // Initialize the number of jumps available
+        if (rigid.velocity.y<=0)  // Prevent initialization on jump
+          currentJumpCount = maxJumpCount;
         // Jump Animation Off
         anim.SetBool("isJumping", false);
+        anim.SetBool("isMultipleJumping", false);
       }
     }
     // If the player is Air State
@@ -72,6 +81,10 @@ public class Movement : MonoBehaviour
       isGrounded = false;
       // Jump Animation On
       anim.SetBool("isJumping", true);
+      if (currentJumpCount % 2 == 0)
+        anim.SetBool("isMultipleJumping", true);
+      else
+        anim.SetBool("isMultipleJumping", false);
     }
 
     // Preventing slipping on slopes
@@ -124,7 +137,6 @@ public class Movement : MonoBehaviour
     {
       // Next Stage
       gameManager.NextStage();
-      Debug.Log("dd");
 
       PlaySound("FINISH");
     }
@@ -241,11 +253,19 @@ public class Movement : MonoBehaviour
 
   public void Jump()
   {
-    if (!isDamaged && isGrounded)
+    if (!isDamaged)
     {
-      rigid.velocity = new Vector2(rigid.velocity.x, jumpForce);
-      isGrounded = false;
-      PlaySound("JUMP");
+      // Recognize a walk to a cliff as a jump
+      if (!isGrounded && currentJumpCount == maxJumpCount)
+        currentJumpCount--;
+
+      // Player can more jump
+      if (currentJumpCount > 0)
+      {
+        rigid.velocity = new Vector2(rigid.velocity.x, jumpForce);
+        currentJumpCount--;
+        PlaySound("JUMP");
+      }
     }
   }
 
