@@ -41,7 +41,8 @@ public class Movement : MonoBehaviour
   private int maxJumpCount = 2;
   private int currentJumpCount = 0;
 
-  private int dirc = 0;  // 충돌체 방향
+  private int dirc = 0; // Collider Orientation
+  private int pDir = 0; // Player movement direction
 
   void Awake()
   {
@@ -99,10 +100,6 @@ public class Movement : MonoBehaviour
       rigid.constraints = ~RigidbodyConstraints2D.FreezePositionY;
     else
       rigid.constraints = RigidbodyConstraints2D.FreezeRotation;
-
-    // Prevent floating when moving from uphill to flat
-    if (isGrounded && rigid.velocity.y > 0 && !Input.GetButton("Jump") && !isDamaged)
-      rigid.velocity = new Vector2(rigid.velocity.x, 0);
   }
 
   private void OnCollisionEnter2D(Collision2D collision)
@@ -274,7 +271,21 @@ public class Movement : MonoBehaviour
 
       // Curse
       if (rigid.velocity.x != 0)
+      {
         spriteRenderer.flipX = rigid.velocity.x < 0;
+        pDir = rigid.velocity.x > 0 ? 1 : -1;
+      }
+
+      // Prevent floating when moving from uphill to flat
+      if (isGrounded && rigid.velocity.y > 0 && !Input.GetButton("Jump") && !isDamaged)
+        rigid.velocity = new Vector2(rigid.velocity.x, 0);
+
+      // Prevent floating when moving from flat to downhill
+      RaycastHit2D hit = Physics2D.Raycast(rigid.position + new Vector2(0.5f * pDir, 0), Vector2.down, 2f, LayerMask.GetMask("Platform"));
+      if (hit.distance < 1.02f && hit.distance > 0.5f && isGrounded)
+        rigid.gravityScale = 10;
+      else
+        rigid.gravityScale = 2.5f;
 
       // Animator
       if (Mathf.Abs(rigid.velocity.x) < 0.3f)
