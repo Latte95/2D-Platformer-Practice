@@ -21,6 +21,7 @@ public class Movement : MonoBehaviour
   // Move Speed
   [SerializeField]
   private float speed = 5.0f;
+  private int pDir = 0; // Player movement direction
   // Jump Power
   [SerializeField]
   private float jumpForce = 12.0f;
@@ -41,8 +42,33 @@ public class Movement : MonoBehaviour
   private int maxJumpCount = 2;
   private int currentJumpCount = 0;
 
+  // Point
+  private int bronzeCoin = 10;
+  private int silverCoin = 50;
+  private int goldCoin = 200;
+  private int enemyDefeat = 100;
+
+  // Player Reaction
+  Vector2 onDamaged = new Vector2(2, 3);  // Player moves when hit.
+  private float stopSpeed = 0.3f;
+  private float dieJump = 3.0f; // Player moves when die.
   private int dirc = 0; // Collider Orientation
-  private int pDir = 0; // Player movement direction
+
+  // Time
+  private float offDamagedTime = 1.5f;  // Player unbeatable time
+  private float notDamageTime = 1f;  // Player is able to move after being hit time
+
+  // Layer
+  private int playerLayer = 9;
+  private int playerDamagedLayer = 10;
+
+  // Player Position Check
+  private float downHill = 1.02f;
+  private float flatSurface = 0.5f;
+
+  // Player Gravity
+  private float downHillGravity = 10.0f;
+  private float normalGravity = 2.5f;
 
   void Awake()
   {
@@ -139,11 +165,11 @@ public class Movement : MonoBehaviour
         bool isSilver = collision.gameObject.name.Contains("Silver");
         bool isGold = collision.gameObject.name.Contains("Gold");
         if (isBronze)
-          gameManager.stagePoint += 10;
+          gameManager.stagePoint += bronzeCoin;
         else if (isSilver)
-          gameManager.stagePoint += 50;
+          gameManager.stagePoint += silverCoin;
         else if (isGold)
-          gameManager.stagePoint += 200;
+          gameManager.stagePoint += goldCoin;
 
         // Deactive Item
         collision.gameObject.SetActive(false);
@@ -163,7 +189,7 @@ public class Movement : MonoBehaviour
   void OnAttack(Transform enemy)
   {
     // Get Point
-    gameManager.stagePoint += 100;
+    gameManager.stagePoint += enemyDefeat;
     // Enemy Reaction
     EnemyMove enemyMove = enemy.GetComponent<EnemyMove>();
     enemyMove.Ondamaged();
@@ -178,28 +204,29 @@ public class Movement : MonoBehaviour
     // Change Unabeatable State
     isUnbeat = true;
     // Change Layer
-    gameObject.layer = 10;
+    gameObject.layer = playerDamagedLayer;
     // View
     spriteRenderer.color = new Color(1, 1, 1, 0.4f);
 
     // Player Reaction
     dirc = transform.position.x - targetPos.x > 0 ? 1 : -1;
-    rigid.velocity = new Vector2(dirc, 1.5f) * 2;
+    rigid.velocity = onDamaged * new Vector2(dirc, 1);
 
     // Health Down
     gameManager.HealthDown();
 
     isDamage();
     // Return Layer and View
-    Invoke("offDamaged", 1.5f);
+    Invoke("offDamaged", offDamagedTime);
 
     PlaySound("DAMAGED");
   }
 
+  // Player is unbeat
   void offDamaged()
   {
     // Change Layer
-    gameObject.layer = 9;
+    gameObject.layer = playerLayer;
     // View
     spriteRenderer.color = new Color(1, 1, 1, 1);
     // Return Beatable State
@@ -212,10 +239,10 @@ public class Movement : MonoBehaviour
     isDamaged = true;
 
     // When a player lands on the ground or stops being knocked back by a hit
-    if ((isGrounded && rigid.velocity.y <= 0) || Mathf.Abs(rigid.velocity.x) < 0.3f)
+    if ((isGrounded && rigid.velocity.y <= 0) || Mathf.Abs(rigid.velocity.x) < stopSpeed)
       isNotDamage();
     else
-      Invoke("isNotDamage", 1);
+      Invoke("isNotDamage", notDamageTime);
   }
 
   // Player can move again
@@ -230,7 +257,7 @@ public class Movement : MonoBehaviour
     spriteRenderer.color = new Color(1, 1, 1, 0.4f);
     // Reation
     spriteRenderer.flipY = true;
-    rigid.AddForce(Vector2.up * 3, ForceMode2D.Impulse);
+    rigid.AddForce(Vector2.up * dieJump, ForceMode2D.Impulse);
     // No Collider => Fall
     collision.enabled = false;
     // Sound
@@ -282,13 +309,13 @@ public class Movement : MonoBehaviour
 
       // Prevent floating when moving from flat to downhill
       RaycastHit2D hit = Physics2D.Raycast(rigid.position + new Vector2(0.5f * pDir, 0), Vector2.down, 2f, LayerMask.GetMask("Platform"));
-      if (hit.distance < 1.02f && hit.distance > 0.5f && isGrounded)
-        rigid.gravityScale = 10;
+      if (hit.distance < downHill && hit.distance > flatSurface && isGrounded)
+        rigid.gravityScale = downHillGravity;
       else
-        rigid.gravityScale = 2.5f;
+        rigid.gravityScale = normalGravity;
 
       // Animator
-      if (Mathf.Abs(rigid.velocity.x) < 0.3f)
+      if (Mathf.Abs(rigid.velocity.x) < stopSpeed)
         anim.SetBool("isWalking", false);
       else
         anim.SetBool("isWalking", true);
